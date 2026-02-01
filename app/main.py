@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 import httpx
+from starlette import status
 
 from . import models, schemas, database
 
@@ -17,6 +18,14 @@ app = FastAPI(title="City Temperature API")
 
 @app.post("/cities", response_model=schemas.City)
 def create_city(city: schemas.CityCreate, db: Session = Depends(database.get_db)):
+    existing_city = db.query(models.City).filter(models.City.name == city.name).first()
+
+    if existing_city:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"City with name '{city.name}' already exists."
+        )
+
     db_city = models.City(name=city.name, additional_info=city.additional_info)
     db.add(db_city)
     db.commit()
