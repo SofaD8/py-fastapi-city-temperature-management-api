@@ -1,5 +1,6 @@
 from typing import Optional
 
+from fastapi.concurrency import run_in_threadpool
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -52,7 +53,7 @@ def delete_city(city_id: int, db: Session = Depends(database.get_db)):
 
 @app.post("/temperatures/update")
 async def update_temperatures(db: Session = Depends(database.get_db)):
-    cities = db.query(models.City).all()
+    cities = await run_in_threadpool(lambda: db.query(models.City).all())
     if not cities:
         return {"message": "No cities in database"}
 
@@ -75,12 +76,12 @@ async def update_temperatures(db: Session = Depends(database.get_db)):
                         date_time=datetime.now(),
                         temperature=temp
                     )
-                    db.add(new_temp)
+                    await run_in_threadpool(db.add, new_temp)
             except Exception as e:
                 print(f"Error fetching data for {city.name}: {e}")
                 continue
 
-    db.commit()
+    await run_in_threadpool(db.commit)
     return {"message": f"Temperatures updated for {len(cities)} cities"}
 
 
